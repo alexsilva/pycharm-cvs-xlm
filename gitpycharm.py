@@ -10,8 +10,12 @@ import io
 
 class VCS(object):
     """Stores information about version control"""
-    tool = os.environ.get('GIT_PATH', 'git')
+    tool = os.environ.get('VCS_PATH', 'git')
     name = 'git'
+
+    @classmethod
+    def execute(cls, pargs, *args, **kwargs):
+        return subprocess.call([cls.tool] + list(pargs), *args, **kwargs)
 
 
 class GitSMConfig(object):
@@ -62,9 +66,8 @@ class Submodule(object):
         return self.config['path']
 
     def update(self):
-        subprocess.call([VCS.tool, 'checkout',
-                         self.config['branch']],
-                        cwd=self.fullpath)
+        VCS.execute(['checkout', self.config['branch']],
+                    cwd=self.fullpath)
 
     def __str__(self):
         return str(self.config)
@@ -74,6 +77,11 @@ class Project(object):
     """A project containing submodules"""
     git_module_dir = '.git'
     git_submodule_filename = '.gitmodules'
+    update_extra_args = [
+        '--init',
+        '--recursive',
+        '--merge'
+    ]
 
     def __init__(self, project_root, branch=None):
         self.project_root = project_root
@@ -82,12 +90,12 @@ class Project(object):
         self.submodules = []
 
     def update(self):
-        args = [VCS.tool, 'pull']
+        args = ['pull']
         if self.branch is not None:
             args.append(self.branch)
-        subprocess.call(args, cwd=self.project_root)
-        subprocess.call([VCS.tool, 'submodule', 'update', '--init', '--recursive'],
-                        cwd=self.project_root)
+        VCS.execute(args, cwd=self.project_root)
+        VCS.execute(['submodule', 'update'] + self.update_extra_args,
+                    cwd=self.project_root)
 
     def submodule_register(self, sm_path):
         for git_module_path in self.submodule_configs:
