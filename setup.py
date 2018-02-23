@@ -2,8 +2,11 @@ from setuptools import setup
 
 setup(
     name='pychnarm-vcs-xml',
-    py_modules=['gitpycharm'],
-    version='1.0',
+    py_modules=[
+        'gitpycharm',
+        "gitsubmodule"
+    ],
+    version='2.0',
     url='https://github.com/alexsilva/pycharm-cvs-xlm',
     license='MIT',
     author='alex',
