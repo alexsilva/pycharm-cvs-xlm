@@ -13,8 +13,9 @@ if __name__ == "__main__":
     project = Project(projectdir)
     project.update()
 
-    print "Loading submodules..."
+    print "Loading submodules"
     project.load_submodules()
 
     for submodule in project:
+        print "Submodule update \"{}\"".format(submodule.path)
         submodule.update()
