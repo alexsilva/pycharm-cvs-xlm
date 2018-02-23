@@ -14,14 +14,12 @@ if len(sys.argv) > 1:
 else:
     projectdir = os.getcwd()
 
-xmlfilepath = os.path.join(projectdir, ".idea", "vcs.xml")
 
-git_tool = os.environ.get('GIT_PATH', 'git')
+class VCS(object):
+    """Stores information about version control"""
+    tool = os.environ.get('GIT_PATH', 'git')
+    name = 'git'
 
-vcs_name = 'git'
-
-
-# -------------
 
 class GitSMConfig(object):
     """Analyzes files of type .gitmodules """
@@ -60,7 +58,7 @@ class GitSMConfig(object):
 
 
 class Submodule(object):
-    """"""
+    """Represents an object of type submodule"""
 
     def __init__(self, fullpath, config):
         self.fullpath = fullpath
@@ -71,7 +69,7 @@ class Submodule(object):
         return self.config['path']
 
     def update(self):
-        subprocess.call([git_tool, 'checkout',
+        subprocess.call([VCS.tool, 'checkout',
                          self.config['branch']],
                         cwd=self.fullpath)
 
@@ -80,6 +78,7 @@ class Submodule(object):
 
 
 class Project(object):
+    """A project containing submodules"""
     git_module_dir = '.git'
     git_submodule_filename = '.gitmodules'
     branch_default = "master"
@@ -91,11 +90,11 @@ class Project(object):
         self.submodules = []
 
     def update(self):
-        args = [git_tool, 'pull']
+        args = [VCS.tool, 'pull']
         if self.branch is not None:
             args.append(self.branch_default)
         subprocess.call(args, cwd=self.project_root)
-        subprocess.call([git_tool, 'submodule', 'update'], cwd=self.project_root)
+        subprocess.call([VCS.tool, 'submodule', 'update'], cwd=self.project_root)
 
     def submodule_register(self, sm_path):
         for git_module_path in self.submodule_configs:
@@ -123,51 +122,67 @@ class Project(object):
                     self.submodule_configs[filepath] = sm_config
 
 
-project = Project(projectdir)
-project.update()
+class Pycharm(object):
+    """Pycharm configuration object"""
+    env_project_dir = '$PROJECT_DIR$'
+    filename = "vcs.xml"
+    config_dir = ".idea"
+    root_item_name = 'component'
 
-project.load_submodules()
+    def __init__(self, project):
+        self.project_root = project.project_root
+        self.xml_filepath = os.path.join(self.project_root,
+                                         self.config_dir,
+                                         self.filename)
+        self.tree = ET.parse(self.xml_filepath)
+        self.tree_root = self.tree.getroot()
+        self.project = project
 
-# -------------
+    def update(self):
+        config = []
+        for component in self.tree_root.iter(self.root_item_name):
+            for mapping in component.iter('mapping'):
+                vcs_type = mapping.attrib['vcs']
+                if vcs_type and vcs_type.lower() == VCS.name:
+                    directory = mapping.attrib['directory']
 
-tree = ET.parse(xmlfilepath)
-treeparser = tree.getroot()
+                    if directory.startswith(self.env_project_dir):
+                        directory = directory.replace(self.env_project_dir, self.project_root)
+                        directory = os.path.abspath(directory)
 
-environ_name = '$PROJECT_DIR$'
+                    config.append(directory)
 
-for component in treeparser.iter('component'):
+            for submodule in self.project:
+                submodule_path = submodule.fullpath
+                # check if you have already registered with pycharm
+                if submodule_path in config:
+                    print "Skip \"{}\" already registered".format(submodule_path)
+                    continue
 
-    pycharm_modules_config = []
+                print "Submodule update \"{}\"".format(submodule.path)
+                submodule.update()
 
-    for mapping in component.iter('mapping'):
-        vcs_type = mapping.attrib['vcs']
-        if vcs_type and vcs_type.lower() == vcs_name:
-            directory = mapping.attrib['directory']
+                submodule_relpath = submodule_path.replace(self.project_root, '$PROJECT_DIR$')
+                print "Pycharm add ({})".format(submodule_relpath)
+                new_mapping = ET.SubElement(component, 'mapping', attrib={
+                    "directory": submodule_relpath,
+                    "vcs": VCS.name.capitalize(),
+                })
+                new_mapping.tail = "\n\t"
 
-            if directory.startswith(environ_name):
-                directory = directory.replace(environ_name, projectdir)
-                directory = os.path.abspath(directory)
+        print 'Saving changes'
+        self.tree.write(self.xml_filepath)
+        print 'Done'
 
-            pycharm_modules_config.append(directory)
 
-    for submodule in project:
-        submodule_path = submodule.fullpath
-        # check if you have already registered with pycharm
-        if submodule_path in pycharm_modules_config:
-            print "Skip \"{}\" already registered".format(submodule_path)
-            continue
+if __name__ == "__main__":
+    print "Project update \"{}\"".format(projectdir)
+    project = Project(projectdir)
+    project.update()
 
-        print "update {}".format(submodule.path)
-        submodule.update()
+    print "Loading submodules..."
+    project.load_submodules()
 
-        pycharm_md_path = submodule_path.replace(projectdir, '$PROJECT_DIR$')
-        print "Add to pycharm VCS ({})".format(pycharm_md_path)
-        new_mapping = ET.SubElement(component, 'mapping', attrib={
-            "directory": pycharm_md_path,
-            "vcs":  "Git",
-        })
-        new_mapping.tail = "\n\t"
-
-print 'Saving changes'
-tree.write(xmlfilepath)
-print 'Done.'
+    print "Pycharm update"
+    pycharm = Pycharm(project)
+    pycharm.update()
