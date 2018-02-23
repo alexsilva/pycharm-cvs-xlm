@@ -7,13 +7,6 @@ import ConfigParser
 import subprocess
 import io
 
-# ---------------
-
-if len(sys.argv) > 1:
-    projectdir = sys.argv[-1]
-else:
-    projectdir = os.getcwd()
-
 
 class VCS(object):
     """Stores information about version control"""
@@ -179,6 +172,11 @@ class Pycharm(object):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        projectdir = sys.argv[-1]
+    else:
+        projectdir = os.getcwd()
+
     print "Project update \"{}\"".format(projectdir)
     project = Project(projectdir)
     project.update()
