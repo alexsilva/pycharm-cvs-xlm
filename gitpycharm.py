@@ -153,9 +153,6 @@ class Pycharm(object):
                     print "Skip \"{}\" already registered".format(submodule_path)
                     continue
 
-                print "Submodule update \"{}\"".format(submodule.path)
-                submodule.update()
-
                 submodule_relpath = submodule_path.replace(self.project_root,
                                                            self.env_project_dir)
                 print "Pycharm add ({})".format(submodule_relpath)
@@ -180,8 +177,12 @@ if __name__ == "__main__":
     project = Project(projectdir)
     project.update()
 
-    print "Loading submodules..."
+    print "Loading submodules"
     project.load_submodules()
+
+    for submodule in project:
+        print "Submodule update \"{}\"".format(submodule.path)
+        submodule.update()
 
     print "Pycharm update"
     pycharm = Pycharm(project)
