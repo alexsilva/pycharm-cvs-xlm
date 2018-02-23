@@ -4,7 +4,7 @@ Search for git submodules in the project and add them to the vcs.xml file from a
 
 ## install
 
-`python -m pip install git+git@github.com:alexsilva/pycharm-cvs-xlm.git@master`
+`python -m pip install git+https://github.com/alexsilva/pycharm-cvs-xlm.git`
 
 ## usage
 
