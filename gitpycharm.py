@@ -15,6 +15,7 @@ class VCS(object):
 
     @classmethod
     def execute(cls, pargs, *args, **kwargs):
+        kwargs.setdefault('env', os.environ.copy())
         return subprocess.call([cls.tool] + list(pargs), *args, **kwargs)
 
 
