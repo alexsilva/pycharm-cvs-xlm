@@ -176,14 +176,27 @@ class Pycharm(object):
         print 'Done'
 
 
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        projectdir = sys.argv[-1]
-    else:
-        projectdir = os.getcwd()
+class Config(object):
+    def __init__(self, *args):
+        self._cache_config = {}
+        self.args = args
 
-    print "Project update \"{}\"".format(projectdir)
-    project = Project(projectdir)
+    @property
+    def project_root(self):
+        value = self._cache_config.get('project_root')
+        if value is None:
+            value = self.args[1] if len(self.args) > 1 else os.getcwd()
+        return value
+
+
+if __name__ == "__main__":
+
+    config = Config(*sys.argv)
+
+    project_root = config.project_root
+
+    print "Project update \"{}\"".format(project_root)
+    project = Project(project_root)
     project.update()
 
     print "Loading submodules"

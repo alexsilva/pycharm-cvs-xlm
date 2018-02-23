@@ -1,18 +1,18 @@
 import sys
 
-import os
-
-from gitpycharm import Project
+from gitpycharm import Project, Config
 
 """
 Updates submodules of a project
 """
 
 if __name__ == "__main__":
-    projectdir = sys.argv[-1] if len(sys.argv) > 1 else os.getcwd()
+    config = Config(*sys.argv)
 
-    print "Project update \"{}\"".format(projectdir)
-    project = Project(projectdir)
+    project_root = config.project_root
+
+    print "Project update \"{}\"".format(project_root)
+    project = Project(project_root)
     project.update()
 
     print "Loading submodules"
