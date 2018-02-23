@@ -94,7 +94,8 @@ class Project(object):
         if self.branch is not None:
             args.append(self.branch_default)
         subprocess.call(args, cwd=self.project_root)
-        subprocess.call([VCS.tool, 'submodule', 'update'], cwd=self.project_root)
+        subprocess.call([VCS.tool, 'submodule', 'update', '--init', '--recursive'],
+                        cwd=self.project_root)
 
     def submodule_register(self, sm_path):
         for git_module_path in self.submodule_configs:
