@@ -74,7 +74,6 @@ class Project(object):
     """A project containing submodules"""
     git_module_dir = '.git'
     git_submodule_filename = '.gitmodules'
-    branch_default = "master"
 
     def __init__(self, project_root, branch=None):
         self.project_root = project_root
@@ -85,7 +84,7 @@ class Project(object):
     def update(self):
         args = [VCS.tool, 'pull']
         if self.branch is not None:
-            args.append(self.branch_default)
+            args.append(self.branch)
         subprocess.call(args, cwd=self.project_root)
         subprocess.call([VCS.tool, 'submodule', 'update', '--init', '--recursive'],
                         cwd=self.project_root)
