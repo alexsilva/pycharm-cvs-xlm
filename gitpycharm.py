@@ -147,7 +147,8 @@ class Pycharm(object):
                     directory = mapping.attrib['directory']
 
                     if directory.startswith(self.env_project_dir):
-                        directory = directory.replace(self.env_project_dir, self.project_root)
+                        directory = directory.replace(self.env_project_dir,
+                                                      self.project_root)
                         directory = os.path.abspath(directory)
 
                     config.append(directory)
@@ -162,7 +163,8 @@ class Pycharm(object):
                 print "Submodule update \"{}\"".format(submodule.path)
                 submodule.update()
 
-                submodule_relpath = submodule_path.replace(self.project_root, '$PROJECT_DIR$')
+                submodule_relpath = submodule_path.replace(self.project_root,
+                                                           self.env_project_dir)
                 print "Pycharm add ({})".format(submodule_relpath)
                 new_mapping = ET.SubElement(component, 'mapping', attrib={
                     "directory": submodule_relpath,
