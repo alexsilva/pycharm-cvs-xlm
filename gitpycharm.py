@@ -16,33 +16,16 @@ else:
 
 xmlfilepath = os.path.join(projectdir, ".idea", "vcs.xml")
 
-# --------------
-
 git_tool = os.environ.get('GIT_PATH', 'git')
 
 vcs_name = 'git'
-git_module_dir = '.git'
-git_submodule_file = '.gitmodules'
-git_submodules = []
-git_submodule_config = []
 
-
-for root, dirs, files in os.walk(projectdir):
-    for dirname in dirs:
-        dirpath = os.path.join(root, dirname)
-
-    for filename in files:
-        filepath = os.path.abspath(os.path.join(root, filename))
-        if filename == git_module_dir:
-            git_submodules.append(os.path.abspath(root))
-        elif filename == git_submodule_file:
-            git_submodule_config.append(filepath)
 
 # -------------
 
-
-class GitSubmodule(object):
+class GitSMConfig(object):
     """Analyzes files of type .gitmodules """
+
     def __init__(self, filepath):
         self.filepath = filepath
         self.modules = []
@@ -61,7 +44,7 @@ class GitSubmodule(object):
                 self.modules.append({
                     'path': os.path.normpath(cparser.get(sec, "path", None)),
                     'url': cparser.get(sec, "url", None),
-                    'branch': cparser.get(sec, "branch", None),
+                    'branch': cparser.get(sec, "branch", "master"),
                 })
         return cparser
 
@@ -76,22 +59,83 @@ class GitSubmodule(object):
         return iter(self.modules)
 
 
-submodules_config = []
+class Submodule(object):
+    """"""
 
-for config in git_submodule_config:
-    submodule = GitSubmodule(config)
-    submodule.parser()
+    def __init__(self, fullpath, config):
+        self.fullpath = fullpath
+        self.config = config
 
-    submodules_config.append(submodule)
+    @property
+    def path(self):
+        return self.config['path']
+
+    def update(self):
+        subprocess.call([git_tool, 'checkout',
+                         self.config['branch']],
+                        cwd=self.fullpath)
+
+    def __str__(self):
+        return str(self.config)
+
+
+class Project(object):
+    git_module_dir = '.git'
+    git_submodule_filename = '.gitmodules'
+    branch_default = "master"
+
+    def __init__(self, project_root, branch=None):
+        self.project_root = project_root
+        self.branch = branch
+        self.submodule_configs = {}
+        self.submodules = []
+
+    def update(self):
+        args = [git_tool, 'pull']
+        if self.branch is not None:
+            args.append(self.branch_default)
+        subprocess.call(args, cwd=self.project_root)
+        subprocess.call([git_tool, 'submodule', 'update'], cwd=self.project_root)
+
+    def submodule_register(self, sm_path):
+        for git_module_path in self.submodule_configs:
+            sm_config = self.submodule_configs[git_module_path][sm_path]
+            if sm_config is not None:
+                sm = Submodule(sm_path, sm_config)
+                self.submodules.append(sm)
+                break
+
+    def __iter__(self):
+        return iter(self.submodules)
+
+    def load_submodules(self):
+        for root, dirs, files in os.walk(self.project_root):
+            for filename in files:
+                if filename == self.git_module_dir:
+                    self.submodule_register(os.path.abspath(root))
+
+                elif filename == self.git_submodule_filename:
+                    filepath = os.path.abspath(os.path.join(root, filename))
+
+                    sm_config = GitSMConfig(filepath)
+                    sm_config.parser()
+
+                    self.submodule_configs[filepath] = sm_config
+
+
+project = Project(projectdir)
+project.update()
+
+project.load_submodules()
 
 # -------------
 
 tree = ET.parse(xmlfilepath)
-project = tree.getroot()
+treeparser = tree.getroot()
 
 environ_name = '$PROJECT_DIR$'
 
-for component in project.iter('component'):
+for component in treeparser.iter('component'):
 
     pycharm_modules_config = []
 
@@ -106,26 +150,16 @@ for component in project.iter('component'):
 
             pycharm_modules_config.append(directory)
 
-    for submodule_path in git_submodules:
-        # already added
+    for submodule in project:
+        submodule_path = submodule.fullpath
+        # check if you have already registered with pycharm
         if submodule_path in pycharm_modules_config:
-            print "Already registered '{}'".format(submodule_path)
+            print "Skip \"{}\" already registered".format(submodule_path)
             continue
-        print '-' * 20
-        for submodule_config in submodules_config:
-            config = submodule_config[submodule_path]
-            # invalid path ?
-            if config is None:
-                continue
-            print 'Module {}'.format(submodule_path)
-            # noinspection PyBroadException
-            try:
-                print "Running {0:s} checkout".format(git_tool)
-                subprocess.call([git_tool, 'checkout', config['branch']], cwd=submodule_path)
-                print "Running {0:s} pull".format(git_tool)
-                subprocess.call([git_tool, 'pull'], cwd=submodule_path)
-            except Exception:
-                pass
+
+        print "update {}".format(submodule.path)
+        submodule.update()
+
         pycharm_md_path = submodule_path.replace(projectdir, '$PROJECT_DIR$')
         print "Add to pycharm VCS ({})".format(pycharm_md_path)
         new_mapping = ET.SubElement(component, 'mapping', attrib={
