@@ -6,7 +6,7 @@ setup(
         'gitpycharm',
         "gitsubmodule"
     ],
-    version='3.0',
+    version='4.0',
     url='https://github.com/alexsilva/pycharm-cvs-xlm',
     license='MIT',
     author='alex',
