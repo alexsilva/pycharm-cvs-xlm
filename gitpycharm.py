@@ -16,16 +16,16 @@ class VCS(object):
 
     @classmethod
     def execute(cls, pargs, *args, **kwargs):
-        return cls.call(subprocess.call, [cls.tool] + list(pargs), *args, **kwargs)
+        return cls.call(subprocess.call, pargs, *args, **kwargs)
 
     @classmethod
     def execute_output(cls, pargs, *args, **kwargs):
-        return cls.call(subprocess.check_output, [cls.tool] + list(pargs), *args, **kwargs)
+        return cls.call(subprocess.check_output, pargs, *args, **kwargs)
 
     @classmethod
     def call(cls, subprocess_func, pargs, *args, **kwargs):
         kwargs.setdefault('env', os.environ.copy())
-        return subprocess_func(pargs, *args, **kwargs)
+        return subprocess_func([cls.tool] + list(pargs), *args, **kwargs)
 
 
 class GitSMState(object):
