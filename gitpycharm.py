@@ -37,8 +37,11 @@ class GitSMConfig(object):
             cparser.readfp(io.BytesIO("".join(content)))
 
             for sec in cparser.sections():
+                path = cparser.get(sec, "path", None)
+                if path is None:
+                    continue
                 self.modules.append({
-                    'path': os.path.normpath(cparser.get(sec, "path", None)),
+                    'path': os.path.normpath(path),
                     'url': cparser.get(sec, "url", None),
                     'branch': cparser.get(sec, "branch", "master"),
                 })
