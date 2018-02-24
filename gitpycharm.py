@@ -15,8 +15,29 @@ class VCS(object):
 
     @classmethod
     def execute(cls, pargs, *args, **kwargs):
+        return cls.call(subprocess.call, [cls.tool] + list(pargs), *args, **kwargs)
+
+    @classmethod
+    def execute_output(cls, pargs, *args, **kwargs):
+        return cls.call(subprocess.check_output, [cls.tool] + list(pargs), *args, **kwargs)
+
+    @classmethod
+    def call(cls, subprocess_func, pargs, *args, **kwargs):
         kwargs.setdefault('env', os.environ.copy())
-        return subprocess.call([cls.tool] + list(pargs), *args, **kwargs)
+        return subprocess_func(pargs, *args, **kwargs)
+
+
+class GitSMState(object):
+    regex = re.compile("\d+\s\w+\s(?P<hash>[^\s]+)")
+
+    def __init__(self, project_root):
+        self.project_root = project_root
+
+    def get(self, sm_path):
+        data = VCS.execute_output(["ls-tree", "master",  sm_path],
+                                  cwd=self.project_root)
+        match = self.regex.match(data)
+        return match.groupdict()["hash"]
 
 
 class GitSMConfig(object):
@@ -27,25 +48,31 @@ class GitSMConfig(object):
         self.modules = []
 
     def parser(self):
-        cparser = ConfigParser.ConfigParser()
+        sm_state = GitSMState(os.path.dirname(self.filepath))
+
+        config_parser = ConfigParser.ConfigParser()
 
         with open(self.filepath) as _:
             content = []
             for line in _.readlines():
                 content.append(re.sub(r"^[\s\t]+", "", line))
 
-            cparser.readfp(io.BytesIO("".join(content)))
+            config_parser.readfp(io.BytesIO("".join(content)))
 
-            for sec in cparser.sections():
-                path = cparser.get(sec, "path", None)
+            for sec in config_parser.sections():
+                path = config_parser.get(sec, "path", None)
                 if path is None:
                     continue
+
+                sm_hash = sm_state.get(path)
+
                 self.modules.append({
                     'path': os.path.normpath(path),
-                    'url': cparser.get(sec, "url", None),
-                    'branch': cparser.get(sec, "branch", "master"),
+                    'url': config_parser.get(sec, "url", None),
+                    'branch': config_parser.get(sec, "branch", "master"),
+                    'hash': sm_hash
                 })
-        return cparser
+        return config_parser
 
     def __getitem__(self, path):
         """Find the settings for a sub-module for the given path"""
@@ -71,6 +98,9 @@ class Submodule(object):
 
     def update(self):
         VCS.execute(['checkout', self.config['branch']],
+                    cwd=self.fullpath)
+        # Force the last state registered in the project.
+        VCS.execute(['reset', "--soft", self.config['hash']],
                     cwd=self.fullpath)
 
     def __str__(self):
