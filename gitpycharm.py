@@ -1,3 +1,4 @@
+import argparse
 import re
 import xml.etree.ElementTree as ET
 
@@ -28,15 +29,23 @@ class VCS(object):
 
 
 class GitSMState(object):
-    regex = re.compile("\d+\s\w+\s(?P<hash>[^\s]+)")
+    regex_hash = re.compile("\d+\s\w+\s(?P<hash>[^\s]+)")
+    regex_branch = re.compile("\*\s(?P<branch>[^\s]+)", re.DOTALL|re.MULTILINE)
 
     def __init__(self, project_root):
         self.project_root = project_root
 
     def get(self, sm_path):
-        data = VCS.execute_output(["ls-tree", "master",  sm_path],
+        data = VCS.execute_output(["branch"], cwd=self.project_root)
+        options = self.regex_branch.findall(data)
+        if len(options) > 0:
+            branch = options[0]
+        else:
+            branch = "master"
+            print "* \"{}\" using branch default \"{}\"".format(sm_path, branch)
+        data = VCS.execute_output(["ls-tree", branch,  sm_path],
                                   cwd=self.project_root)
-        match = self.regex.match(data)
+        match = self.regex_hash.match(data)
         return match.groupdict()["hash"]
 
 
@@ -126,7 +135,7 @@ class Project(object):
     def update(self):
         args = ['pull']
         if self.branch is not None:
-            args.append(self.branch)
+            args.extend(["origin", self.branch])
         VCS.execute(args, cwd=self.project_root)
         VCS.execute(['submodule', 'update'] + self.update_extra_args,
                     cwd=self.project_root)
@@ -211,25 +220,33 @@ class Pycharm(object):
 
 class Config(object):
     def __init__(self, *args):
-        self._cache_config = {}
-        self.args = args
+        parser = self.add_arguments()
+        self.options = parser.parse_args(args)
+
+    @staticmethod
+    def add_arguments():
+        parser = argparse.ArgumentParser(description='Project arguments')
+        parser.add_argument("-p", "--path", default=os.getcwd())
+        parser.add_argument("-b", "--branch", default=None)
+        return parser
 
     @property
     def project_root(self):
-        value = self._cache_config.get('project_root')
-        if value is None:
-            value = self.args[1] if len(self.args) > 1 else os.getcwd()
-        return value
+        return self.options.path
+
+    @property
+    def project_branch(self):
+        return self.options.branch
 
 
 if __name__ == "__main__":
 
-    config = Config(*sys.argv)
+    config = Config(*sys.argv[1:])
 
     project_root = config.project_root
 
     print "Project update \"{}\"".format(project_root)
-    project = Project(project_root)
+    project = Project(project_root, branch=config.project_branch)
     project.update()
 
     print "Loading submodules"
