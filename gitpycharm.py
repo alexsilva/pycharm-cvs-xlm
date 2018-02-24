@@ -109,7 +109,7 @@ class Submodule(object):
         VCS.execute(['checkout', self.config['branch']],
                     cwd=self.fullpath)
         # Force the last state registered in the project.
-        VCS.execute(['reset', "--soft", self.config['hash']],
+        VCS.execute(['reset', "--hard", self.config['hash']],
                     cwd=self.fullpath)
 
     def __str__(self):
