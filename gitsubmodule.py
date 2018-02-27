@@ -11,8 +11,10 @@ if __name__ == "__main__":
 
     project_root = config.project_root
 
+    options = vars(config.options)
+
     print "Project update \"{}\"".format(project_root)
-    project = Project(project_root, branch=config.project_branch)
+    project = Project(project_root, **options)
     project.update()
 
     print "Loading submodules"

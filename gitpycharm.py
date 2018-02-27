@@ -97,9 +97,10 @@ class GitSMConfig(object):
 class Submodule(object):
     """Represents an object of type submodule"""
 
-    def __init__(self, fullpath, config):
+    def __init__(self, fullpath, config, **options):
         self.fullpath = fullpath
         self.config = config
+        self.options = options
 
     @property
     def path(self):
@@ -109,7 +110,7 @@ class Submodule(object):
         VCS.execute(['checkout', self.config['branch']],
                     cwd=self.fullpath)
         # Force the last state registered in the project.
-        VCS.execute(['reset', "--hard", self.config['hash']],
+        VCS.execute(['reset', "--" + self.options['sm_reset'], self.config['hash']],
                     cwd=self.fullpath)
 
     def __str__(self):
@@ -126,11 +127,12 @@ class Project(object):
         '--merge'
     ]
 
-    def __init__(self, project_root, branch=None):
+    def __init__(self, project_root, branch=None, **options):
         self.project_root = project_root
         self.branch = branch
         self.submodule_configs = {}
         self.submodules = []
+        self.options = options
 
     def update(self):
         args = ['pull']
@@ -144,7 +146,7 @@ class Project(object):
         for git_module_path in self.submodule_configs:
             sm_config = self.submodule_configs[git_module_path][sm_path]
             if sm_config is not None:
-                sm = Submodule(sm_path, sm_config)
+                sm = Submodule(sm_path, sm_config, **self.options)
                 self.submodules.append(sm)
                 break
 
@@ -228,6 +230,7 @@ class Config(object):
         parser = argparse.ArgumentParser(description='Project arguments')
         parser.add_argument("-p", "--path", default=os.getcwd())
         parser.add_argument("-b", "--branch", default=None)
+        parser.add_argument("-s", "--sm-reset", default="soft")
         return parser
 
     @property
@@ -245,8 +248,10 @@ if __name__ == "__main__":
 
     project_root = config.project_root
 
+    options = vars(config.options)
+
     print "Project update \"{}\"".format(project_root)
-    project = Project(project_root, branch=config.project_branch)
+    project = Project(project_root, **options)
     project.update()
 
     print "Loading submodules"
