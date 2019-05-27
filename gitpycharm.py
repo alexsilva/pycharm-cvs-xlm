@@ -46,7 +46,7 @@ class GitSMState(object):
         data = VCS.execute_output(["ls-tree", branch,  sm_path],
                                   cwd=self.project_root)
         match = self.regex_hash.match(data)
-        return match.groupdict()["hash"]
+        return match.groupdict()["hash"] if match else None
 
 
 class GitSMConfig(object):
@@ -110,8 +110,9 @@ class Submodule(object):
         VCS.execute(['checkout', self.config['branch']],
                     cwd=self.fullpath)
         # Force the last state registered in the project.
-        VCS.execute(['reset', "--" + self.options['sm_reset'], self.config['hash']],
-                    cwd=self.fullpath)
+        if self.config['hash']:
+            VCS.execute(['reset', "--" + self.options['sm_reset'], self.config['hash']],
+                        cwd=self.fullpath)
 
     def __str__(self):
         return str(self.config)
