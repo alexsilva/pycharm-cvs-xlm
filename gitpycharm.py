@@ -1,12 +1,12 @@
 import argparse
+import io
+import os
 import re
+import subprocess
+import sys
 import xml.etree.ElementTree as ET
 
-import os
-import sys
-import ConfigParser
-import subprocess
-import io
+import configparser
 
 
 class VCS(object):
@@ -25,12 +25,13 @@ class VCS(object):
     @classmethod
     def call(cls, subprocess_func, pargs, *args, **kwargs):
         kwargs.setdefault('env', os.environ.copy())
+        kwargs.setdefault('encoding', sys.getfilesystemencoding())
         return subprocess_func([cls.tool] + list(pargs), *args, **kwargs)
 
 
-class GitSMState(object):
-    regex_hash = re.compile("\d+\s\w+\s(?P<hash>[^\s]+)")
-    regex_branch = re.compile("\*\s(?P<branch>[^\s]+)", re.DOTALL|re.MULTILINE)
+class GitSMState:
+    regex_hash = re.compile(r"\d+\s\w+\s(?P<hash>[^\s]+)")
+    regex_branch = re.compile(r"\*\s(?P<branch>[^\s]+)", re.DOTALL | re.MULTILINE)
 
     def __init__(self, project_root):
         self.project_root = project_root
@@ -42,14 +43,14 @@ class GitSMState(object):
             branch = options[0]
         else:
             branch = "master"
-            print "* \"{}\" using branch default \"{}\"".format(sm_path, branch)
-        data = VCS.execute_output(["ls-tree", branch,  sm_path],
+            print("* \"{}\" using branch default \"{}\"".format(sm_path, branch))
+        data = VCS.execute_output(["ls-tree", branch, sm_path],
                                   cwd=self.project_root)
         match = self.regex_hash.match(data)
         return match.groupdict()["hash"] if match else None
 
 
-class GitSMConfig(object):
+class GitSMConfig:
     """Analyzes files of type .gitmodules """
 
     def __init__(self, filepath):
@@ -59,17 +60,17 @@ class GitSMConfig(object):
     def parser(self):
         sm_state = GitSMState(os.path.dirname(self.filepath))
 
-        config_parser = ConfigParser.ConfigParser()
+        config_parser = configparser.ConfigParser()
 
         with open(self.filepath) as _:
             content = []
             for line in _.readlines():
                 content.append(re.sub(r"^[\s\t]+", "", line))
 
-            config_parser.readfp(io.BytesIO("".join(content)))
+            config_parser.read_file(io.StringIO("".join(content)))
 
             for sec in config_parser.sections():
-                path = config_parser.get(sec, "path", None)
+                path = config_parser.get(sec, "path", fallback=None)
                 if path is None:
                     continue
 
@@ -77,8 +78,8 @@ class GitSMConfig(object):
 
                 self.modules.append({
                     'path': os.path.normpath(path),
-                    'url': config_parser.get(sec, "url", None),
-                    'branch': config_parser.get(sec, "branch", "master"),
+                    'url': config_parser.get(sec, "url", fallback=None),
+                    'branch': config_parser.get(sec, "branch", fallback="master"),
                     'hash': sm_hash
                 })
         return config_parser
@@ -94,7 +95,7 @@ class GitSMConfig(object):
         return iter(self.modules)
 
 
-class Submodule(object):
+class Submodule:
     """Represents an object of type submodule"""
 
     def __init__(self, fullpath, config, **options):
@@ -169,7 +170,7 @@ class Project(object):
                     self.submodule_configs[filepath] = sm_config
 
 
-class Pycharm(object):
+class Pycharm:
     """Pycharm configuration object"""
     env_project_dir = '$PROJECT_DIR$'
     filename = "vcs.xml"
@@ -204,24 +205,24 @@ class Pycharm(object):
                 submodule_path = submodule.fullpath
                 # check if you have already registered with pycharm
                 if submodule_path in config:
-                    print "Skip \"{}\" already registered".format(submodule_path)
+                    print("Skip \"{}\" already registered".format(submodule_path))
                     continue
 
                 submodule_relpath = submodule_path.replace(self.project_root,
                                                            self.env_project_dir)
-                print "Pycharm add ({})".format(submodule_relpath)
+                print("Pycharm add ({})".format(submodule_relpath))
                 new_mapping = ET.SubElement(component, 'mapping', attrib={
                     "directory": submodule_relpath,
                     "vcs": VCS.name.capitalize(),
                 })
                 new_mapping.tail = "\n\t"
 
-        print 'Saving changes'
+        print('Saving changes')
         self.tree.write(self.xml_filepath)
-        print 'Done'
+        print('Done')
 
 
-class Config(object):
+class Config:
     def __init__(self, *args):
         parser = self.add_arguments()
         self.options = parser.parse_args(args)
@@ -251,17 +252,17 @@ if __name__ == "__main__":
 
     options = vars(config.options)
 
-    print "Project update \"{}\"".format(project_root)
+    print("Project update \"{}\"".format(project_root))
     project = Project(project_root, **options)
     project.update()
 
-    print "Loading submodules"
+    print("Loading submodules")
     project.load_submodules()
 
     for submodule in project:
-        print "Submodule update \"{}\"".format(submodule.path)
+        print("Submodule update \"{}\"".format(submodule.path))
         submodule.update()
 
-    print "Pycharm update"
+    print("Pycharm update")
     pycharm = Pycharm(project)
     pycharm.update()

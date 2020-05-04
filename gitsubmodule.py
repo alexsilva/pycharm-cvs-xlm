@@ -13,13 +13,13 @@ if __name__ == "__main__":
 
     options = vars(config.options)
 
-    print "Project update \"{}\"".format(project_root)
+    print("Project update \"{}\"".format(project_root))
     project = Project(project_root, **options)
     project.update()
 
-    print "Loading submodules"
+    print("Loading submodules")
     project.load_submodules()
 
     for submodule in project:
-        print "Submodule update \"{}\"".format(submodule.path)
+        print("Submodule update \"{}\"".format(submodule.path))
         submodule.update()
